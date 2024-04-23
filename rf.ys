@@ -1,0 +1,174 @@
+# Benjamin Y.
+# CSCI 304 ('24 01)
+# 4/20 != 24
+# Section 1 (TR 2-3.5)
+# Assignment IX
+
+# Synopsis:
+#
+#   The absolute value of an input is given two cases:
+#       (i) Odd
+#           (a) Mult function called with both x and y being the input
+#       (ii) Even
+#           (b) RF is called
+#               (1) Base cases: If n = 1, total *= 2. If n = 0, do nothing
+#               (2) Else: Call RF twice, storing n on the stack the first time
+#
+#   Then, the memory function is called to push input and output onto the stack
+#       (i) If next input != 0, loop again and pushes IO onto the stack
+#       (ii) If next input == 0, call Hal, which halts the function
+#
+#   Memory changes will then be implemented as desired.
+#
+    
+
+
+# Code!!
+.pos 0
+
+Init:   irmovl Stack, %ebp
+        irmovl Stack, %esp
+        irmovl input, %esi      # esi = input loc
+        irmovl output, %edi     # edi = output loc
+    
+        mrmovl (%esi),  %eax    # let eax = n be our first input
+
+Main:   rmmovl %eax, (%edi)     # input --> output
+        irmovl $4, %edx
+        addl %edx, %edi         # edi moves to next slot of output
+        
+        call Abs                # absolute values eax just in case neg
+
+        irmovl $1, %edx
+        andl %eax, %edx         # if output is odd, andl = 1. Else, andl = 0
+        
+        irmovl $1, %ecx         # DUAL PURPOSE: also the initial value of product
+        subl %ecx, %edx         # if odd, subl = 0, and then we call Odd
+        je Odd
+        
+        call RF                 # if even, Odd is skipped, and this call occurs
+
+        call Mem                # move onto the next value (get new input)
+        
+        jmp Main                # repeat until halted by Hal from Memory
+    
+    
+    
+Odd:    rrmovl %eax, %ebx       # x = input
+        rrmovl %eax, %ecx       # y = input
+
+        irmovl $0,  %eax        # reset return value
+        call Mult               # call to square input
+        
+        rrmovl %eax, %ecx       # store output into the product register
+        
+        call Mem                # move onto the next value (get new input)
+        
+        jmp Main                # repeat until halted by Hal from Memory
+    
+    
+    
+Hal:    halt                    # The last line "executed" (nonmemory).
+
+
+
+RF:     pushl   %ebp            # pro log
+        rrmovl  %esp, %ebp
+        
+        irmovl  $0,   %edx 
+        subl    %eax, %edx      # if n == 0
+        je Zeo                  # skip to the O [base] case 
+        
+        irmovl  $1,   %edx      
+        subl    %eax, %edx      # if n == 1
+        je One                  # skip to the 1 [base] case
+        
+        pushl   %eax            # save the value of n for 2nd recursive call
+        
+        irmovl  $1,   %edx    
+        subl    %edx, %eax      # n --
+        
+        call RF                 # rf(n-1)
+        popl    %eax            # reinstate the value of n for this layer of calls
+        
+        irmovl  $2,   %edx  
+        subl    %edx, %eax      # n -= 2
+        call RF                 # rf(n-2)
+
+        jmp Ende                # The second recursive call is done. One layer done.
+
+One:    irmovl $2, %ebx         # constant to let cur product *= 2
+    
+        pushl %eax              # save %eax
+        irmovl  $0,   %eax      # clear eax to be a return for Mult
+        
+        call Mult               # mult running total by 2 (like *= rf(1))
+        
+        rrmovl %eax, %ecx       # product returned in eax: put it back in ecx
+        popl %eax               # now we are free to recall eax
+        
+Zeo:                            # "multiplies by 1" (translation: do nothing)
+        
+Ende:   popl %ebp               # epilogue, also the closure segment
+        ret
+
+
+
+Mult:   addl    %ecx, %eax      # current prod += y
+        
+        irmovl  $1,   %edx        
+        subl    %edx, %ebx      # x -= 1
+        
+        jne Mult                # while (x) (=> more y's to add)
+        
+        ret                     # multiplication done.
+
+
+Abs:    pushl   %ebp            # pro log
+        rrmovl  %esp, %ebp
+
+        irmovl  $0,   %edx      # holding 0 to raise sign flag
+        addl    %edx, %eax      # now we can compare eax to 0
+        jge Pos                 # if >= 0, we skip the negative case
+        
+        subl    %eax, %edx      # negative case:
+        rrmovl  %edx, %eax      # register maneouvreing
+
+Pos:    popl    %ebp            # epilogue, also closing case
+        ret
+
+
+
+Mem:    pushl   %ebp            # pro log
+        rrmovl  %esp, %ebp
+
+        
+        rmmovl %ecx, (%edi)     # store current ouput in output arr!
+        irmovl $4, %edx
+        addl %edx, %edi         # move output pointer one slot down
+        
+        addl %edx, %esi         # increment input pointer by 4 too
+
+        mrmovl (%esi), %eax     # call in the next input
+        
+        irmovl $0, %edx         # check if this in put is 0
+        addl %edx, %eax         # if it is,
+        je Hal                  # call the finale sequence
+        
+        popl    %ebp            # epilogue
+        ret
+    
+.align 4                        # placing input, output arrs
+
+input:                          # for the inputs
+.long -6
+.long 4
+.long 5
+.long -7
+.long 8
+.long 0
+
+output:                         # will be filled eventually
+
+.pos 0x400  
+Stack:                          # our friend Stack
